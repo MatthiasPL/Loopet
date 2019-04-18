@@ -4,6 +4,11 @@ import android.widget.Toast
 import com.loopmoth.loopet.enums.Stadium
 import com.loopmoth.loopet.interfaces.Creature
 import com.loopmoth.loopet.interfaces.Food
+import org.json.JSONException
+//import javax.swing.UIManager.put
+import org.json.JSONObject
+
+
 
 class CurrentCreature: Creature {
 
@@ -116,5 +121,40 @@ class CurrentCreature: Creature {
     override fun GetOlder(deltaAge: Double) {
         age+=deltaAge
     }
-    
+
+    fun toJSON(): String {
+
+        val jsonObject = JSONObject()
+        try {
+            jsonObject.put("name", name)
+            jsonObject.put("age", age)
+            jsonObject.put("hunger", hunger)
+            jsonObject.put("happiness", happiness)
+            jsonObject.put("poop", poop)
+            jsonObject.put("weight", weight)
+            jsonObject.put("health", health)
+            jsonObject.put("stadium", stadium)
+            jsonObject.put("max_happiness", max_happiness)
+            jsonObject.put("max_health", max_health)
+            jsonObject.put("max_hunger", max_hunger)
+            jsonObject.put("max_poop", max_poop)
+            jsonObject.put("is_dark", is_dark)
+            jsonObject.put("is_ready_to_rise", is_ready_to_rise)
+            jsonObject.put("is_sleeping", is_sleeping)
+            jsonObject.put("is_ill", is_ill)
+            jsonObject.put("is_hungry", is_hungry)
+            jsonObject.put("is_sleepy", is_sleepy)
+            jsonObject.put("is_poop", is_poop)
+            jsonObject.put("is_sad", is_sad)
+            jsonObject.put("is_dead", is_dead)
+            jsonObject.put("care_mistakes", care_mistakes)
+            return jsonObject.toString()
+        } catch (e: JSONException) {
+            // TODO Auto-generated catch block
+            e.printStackTrace()
+            return ""
+        }
+
+    }
+
 }
