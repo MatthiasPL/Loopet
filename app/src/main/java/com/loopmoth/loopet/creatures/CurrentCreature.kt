@@ -42,7 +42,7 @@ class CurrentCreature: Creature {
     var is_ill: Boolean = false
     var is_hungry: Boolean = false
     var is_sleepy: Boolean = false
-    var is_poop: Boolean = false
+    var has_pooped: Boolean = false
     var is_sad: Boolean = false
     var is_dead: Boolean = false
 
@@ -73,8 +73,8 @@ class CurrentCreature: Creature {
     }
 
     override fun Wash() {
-        if(is_poop){
-            is_poop = false
+        if(has_pooped){
+            has_pooped = false
             poop = max_poop
             //pomyślnie umyto
         }
@@ -144,7 +144,7 @@ class CurrentCreature: Creature {
             jsonObject.put("is_ill", is_ill)
             jsonObject.put("is_hungry", is_hungry)
             jsonObject.put("is_sleepy", is_sleepy)
-            jsonObject.put("is_poop", is_poop)
+            jsonObject.put("is_poop", has_pooped)
             jsonObject.put("is_sad", is_sad)
             jsonObject.put("is_dead", is_dead)
             jsonObject.put("care_mistakes", care_mistakes)
