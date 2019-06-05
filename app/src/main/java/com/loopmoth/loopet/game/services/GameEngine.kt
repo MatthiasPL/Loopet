@@ -7,30 +7,46 @@ import android.os.IBinder
 import com.loopmoth.loopet.game.receivers.GameEngineRestarterBroadcastReceiver
 import xdroid.toaster.Toaster.toast
 import java.util.*
-import android.R.string.cancel
-import android.annotation.SuppressLint
 import android.content.Context
-import android.widget.Toast
+import androidx.lifecycle.MutableLiveData
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.google.gson.Gson
+import com.loopmoth.loopet.MainActivity
 import com.loopmoth.loopet.creatures.CurrentCreature
-import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.text.SimpleDateFormat
+import android.app.NotificationManager
+import android.app.PendingIntent
+import androidx.core.app.NotificationCompat
+import com.loopmoth.loopet.R
+import com.loopmoth.loopet.creatures.Baby.Loopel
+import java.io.*
 
 
 class GameEngine() : Service() {
 
+    companion object {
+        var BUS = MutableLiveData<Object>()
+        var COPA_MESSAGE: String = "com.loopmoth.loopet.game.services.GameEngine.COPA_MSG"
+        val COPA_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
+    }
+
+    val COPA_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
+
+    val COPA_MESSAGE = "com.loopmoth.loopet.game.services.GameEngine.COPA_MSG"
+
     // constant
     //val NOTIFY_INTERVAL = (15* 60 * 1000).toLong() // 15 minutes interval
-    val NOTIFY_INTERVAL = 1000.toLong()
+    val NOTIFY_INTERVAL = 1000.toLong() // temporary for testing
 
     // run on another Thread to avoid crash
     private val mHandler = Handler()
     // timer handling
     private var mTimer: Timer? = null
 
-    private lateinit var mCurrentCreature: CurrentCreature
+    private var mCurrentCreature: CurrentCreature? = null
+
+    private lateinit var broadcaster: LocalBroadcastManager
+
+    private val fileName: String = "data.json"
 
     override fun onCreate() {
         super.onCreate()
@@ -44,29 +60,61 @@ class GameEngine() : Service() {
             mTimer = Timer()
         }
         // schedule task
-        mTimer!!.scheduleAtFixedRate(TimeDisplayTimerTask(), 0, NOTIFY_INTERVAL)
+        mTimer!!.scheduleAtFixedRate(GameEngineTimerTask(), 0, NOTIFY_INTERVAL)
+
+        broadcaster = LocalBroadcastManager.getInstance(this);
     }
 
-    internal inner class TimeDisplayTimerTask : TimerTask() {
+    fun sendResult(message: String?) {
+        val intent = Intent(COPA_RESULT)
+        if (message != null)
+            intent.putExtra(COPA_MESSAGE, message)
+        broadcaster.sendBroadcast(intent)
+    }
 
-        private// get date time in custom format
-        val dateTime: String
-            @SuppressLint("SimpleDateFormat")
-            get() {
-                val sdf = SimpleDateFormat("[yyyy/MM/dd - HH:mm:ss]")
-                return sdf.format(Date())
-            }
-
+    internal inner class GameEngineTimerTask : TimerTask() {
         override fun run() {
             // run on another thread
             mHandler.post {
-                // display toast
-                Toast.makeText(
-                    applicationContext, dateTime,
-                    Toast.LENGTH_SHORT
-                ).show()
+                //tutaj działa silnik całej gry
+                sendResult(mCurrentCreature!!.name)
+
+                sendNotification()
             }
         }
+    }
+
+    private fun checkIfFileExists(context: Context){
+        val path = context.filesDir
+        val file = File(path, fileName)
+
+        if(file.exists()){
+            readData(context)
+        }
+        else{
+            mCurrentCreature = CurrentCreature(Loopel())
+            saveData(context)
+            readData(context)
+        }
+    }
+
+    private fun sendNotification() {
+        val mBuilder = NotificationCompat.Builder(this)
+
+        val intent = Intent(this@GameEngine, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, 0)
+
+        mBuilder.setContentIntent(pendingIntent)
+
+        mBuilder.setSmallIcon(R.drawable.ic_launcher_foreground)
+        mBuilder.setContentTitle("Your " + mCurrentCreature?.name + " needs you!")
+        mBuilder.setContentText("Tap the notification to check what is going.")
+
+        val mNotificationManager =
+
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        mNotificationManager.notify(1, mBuilder.build())
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -94,49 +142,23 @@ class GameEngine() : Service() {
 
     private fun saveData(context: Context) {
         val path = context.filesDir
-        val file = File(path, "data.json")
-        val stream = FileOutputStream(file)
-        try {
-            stream.write(mCurrentCreature.toJSON().toByteArray())
-        } finally {
-            stream.close()
-            //Toast.makeText(this, "saved", Toast.LENGTH_SHORT).show()
+        val file = File(path, fileName)
+
+        file.bufferedWriter().use { out ->
+            out.write(mCurrentCreature!!.toJSON())
+        }
     }
-}
 
     private fun readData(context: Context){
         val path = context.filesDir
-        val file = File(path, "data.json")
-        val length = file.length() //as Int
+        val file = File(path, fileName)
 
-        val bytes = ByteArray(length.toInt())
+        val inputStream: InputStream = file.inputStream()
 
-        val `in` = FileInputStream(file)
-            try {
-                `in`.read(bytes)
-            } finally {
-                `in`.close()
-        }
-
-        val contents = String(bytes)
-
-        //Toast.makeText(this, path.toString(), Toast.LENGTH_SHORT).show()
+        val inputString = inputStream.bufferedReader().use { it.readText() }
 
         val gson = Gson()
-        mCurrentCreature = gson.fromJson(contents, CurrentCreature::class.java)
-        //Toast.makeText(this, contents, Toast.LENGTH_SHORT).show()
+        mCurrentCreature = gson.fromJson(inputString, CurrentCreature::class.java)
     }
 
-    private fun checkIfFileExists(context: Context){
-        val path = context.filesDir
-        val file = File(path, "data.json")
-
-        if(file.exists()){
-            readData(context)
-        }
-        else{
-            saveData(context)
-            readData(context)
-        }
-    }
 }
