@@ -11,8 +11,8 @@ interface Creature {
     var max_poop: Int
     var max_health: Int
 
-    fun Feed(food: Food){
-
+    fun Feed(food: Food) : Boolean{
+        return true
     }
     fun Wash(){
 
@@ -36,6 +36,15 @@ interface Creature {
 
     }
     fun GetOlder(deltaAge: Double){
+
+    }
+    fun HungerAlert(){
+
+    }
+    fun PoopAlert(){
+
+    }
+    fun SleepAlert(){
 
     }
 

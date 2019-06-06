@@ -15,6 +15,7 @@ import com.loopmoth.loopet.MainActivity
 import com.loopmoth.loopet.creatures.CurrentCreature
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.os.Vibrator
 import androidx.core.app.NotificationCompat
 import com.loopmoth.loopet.R
 import com.loopmoth.loopet.creatures.Baby.Loopel
@@ -23,18 +24,22 @@ import java.io.*
 
 class GameEngine() : Service() {
 
+    //TODO: evolution, death, illnesses, happiness
+
     companion object {
         var BUS = MutableLiveData<Object>()
-        var COPA_MESSAGE: String = "com.loopmoth.loopet.game.services.GameEngine.COPA_MSG"
-        val COPA_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
+        var CREATURE_NAME: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_NAME"
+        var CREATURE_HUNGRY: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_HUNGRY"
+        val CREATURE_SLEEPY: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_SLEEPY"
+        val CREATURE_POOP: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_POOP"
+        val GAME_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
     }
 
-    val COPA_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
-
-    val COPA_MESSAGE = "com.loopmoth.loopet.game.services.GameEngine.COPA_MSG"
+    val GAME_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
 
     // constant
-    //val NOTIFY_INTERVAL = (15* 60 * 1000).toLong() // 15 minutes interval
+    val minutes: Int = 20
+    //val NOTIFY_INTERVAL = (minutes * 60 * 1000).toLong() // 20 minutes interval
     val NOTIFY_INTERVAL = 1000.toLong() // temporary for testing
 
     // run on another Thread to avoid crash
@@ -61,14 +66,19 @@ class GameEngine() : Service() {
         }
         // schedule task
         mTimer!!.scheduleAtFixedRate(GameEngineTimerTask(), 0, NOTIFY_INTERVAL)
-
-        broadcaster = LocalBroadcastManager.getInstance(this);
+        broadcaster = LocalBroadcastManager.getInstance(this)
     }
 
-    fun sendResult(message: String?) {
-        val intent = Intent(COPA_RESULT)
-        if (message != null)
-            intent.putExtra(COPA_MESSAGE, message)
+
+    //wysyłanie danych do widoku
+    fun sendResult() {
+        val intent = Intent(GAME_RESULT)
+
+        intent.putExtra(CREATURE_NAME, mCurrentCreature!!.name)
+        intent.putExtra(CREATURE_HUNGRY, mCurrentCreature!!.is_hungry.toString())
+        intent.putExtra(CREATURE_SLEEPY, mCurrentCreature!!.is_sleepy.toString())
+        intent.putExtra(CREATURE_POOP, mCurrentCreature!!.has_pooped.toString())
+
         broadcaster.sendBroadcast(intent)
     }
 
@@ -77,16 +87,78 @@ class GameEngine() : Service() {
             // run on another thread
             mHandler.post {
                 //tutaj działa silnik całej gry
-                sendResult(mCurrentCreature!!.name)
-
-                sendNotification()
+                gameEngineLoop()
+                sendResult()
             }
+        }
+    }
+
+    private fun gameEngineLoop(){
+        checkPrivateNeeds()
+        sendNotificationIfNeeded()
+    }
+
+    private fun checkPrivateNeeds(){
+        val deltaAge: Double = (1 / ((60/minutes) * 24)).toDouble()
+
+        val rightNow = Calendar.getInstance()
+        val currentHourIn24Format = rightNow.get(Calendar.HOUR_OF_DAY)
+
+        addAlertWhenNeeded() //zaniedbanemu stworkowi się to nie podoba
+
+        if(!mCurrentCreature!!.is_sleeping){
+            mCurrentCreature!!.hunger -= 10
+            mCurrentCreature!!.poop -= 10
+
+            if(mCurrentCreature!!.hunger < 0){
+                mCurrentCreature!!.hunger = 0
+                mCurrentCreature!!.is_hungry = true
+            }
+
+            if(mCurrentCreature!!.poop < 0){
+                mCurrentCreature!!.poop = 0
+                mCurrentCreature!!.has_pooped = true
+            }
+
+            if(currentHourIn24Format >= 22){
+                mCurrentCreature!!.is_sleepy = true
+                mCurrentCreature!!.Sleep()
+            }
+            else if (currentHourIn24Format >=9){
+                mCurrentCreature!!.is_sleepy = false
+                mCurrentCreature!!.Sleep()
+            }
+        }
+
+        mCurrentCreature!!.GetOlder(deltaAge)
+    }
+
+    private fun addAlertWhenNeeded(){
+        if(!mCurrentCreature!!.is_sleeping){
+            if(mCurrentCreature!!.is_hungry){
+                mCurrentCreature!!.HungerAlert()
+            }
+            if(mCurrentCreature!!.is_sleepy){
+                mCurrentCreature!!.SleepAlert()
+            }
+            if(mCurrentCreature!!.has_pooped){
+                mCurrentCreature!!.PoopAlert()
+            }
+        }
+    }
+
+    private fun sendNotificationIfNeeded(){
+        if(mCurrentCreature!!.has_pooped || mCurrentCreature!!.is_hungry || mCurrentCreature!!.is_sleepy ||
+            mCurrentCreature!!.is_ill || mCurrentCreature!!.is_dead || mCurrentCreature!!.is_sad){
+                sendNotification()
         }
     }
 
     private fun checkIfFileExists(context: Context){
         val path = context.filesDir
         val file = File(path, fileName)
+
+        file.delete()
 
         if(file.exists()){
             readData(context)
@@ -108,13 +180,16 @@ class GameEngine() : Service() {
 
         mBuilder.setSmallIcon(R.drawable.ic_launcher_foreground)
         mBuilder.setContentTitle("Your " + mCurrentCreature?.name + " needs you!")
-        mBuilder.setContentText("Tap the notification to check what is going.")
+        mBuilder.setContentText("Tap the notification to check what is going on.")
 
         val mNotificationManager =
 
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
         mNotificationManager.notify(1, mBuilder.build())
+
+        val vibratorService = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+        vibratorService.vibrate(10)
     }
 
     override fun onBind(intent: Intent?): IBinder? {

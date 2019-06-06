@@ -1,5 +1,6 @@
 package com.loopmoth.loopet.creatures
 
+import android.os.Parcelable
 import android.widget.Toast
 import com.loopmoth.loopet.enums.Stadium
 import com.loopmoth.loopet.interfaces.Creature
@@ -46,6 +47,10 @@ class CurrentCreature: Creature {
     var is_sad: Boolean = false
     var is_dead: Boolean = false
 
+    var hunger_alert: Int = 0
+    var poop_alert: Int = 0
+    var sleep_alert: Int = 0
+
     private var care_mistakes: Int = 0
 
     override fun ChangeLight() {
@@ -54,22 +59,23 @@ class CurrentCreature: Creature {
 
     override fun Sleep() {
         if(!is_sleeping && is_dark){
-            is_sleeping
+            is_sleeping != is_sleeping
         }
     }
 
-    override fun Feed(food: Food) {
+    override fun Feed(food: Food) : Boolean {
         val tempHunger = hunger + food.ratio
 
         if(tempHunger > max_hunger){
             //Nie udało się
             //Toast.makeText(this, "Jest pełny", Toast.LENGTH_SHORT).show()
+            return false
         }
         else{
             hunger = tempHunger
-
             //pomyślnie nakarmiono
         }
+        return true
     }
 
     override fun Wash() {
@@ -119,7 +125,31 @@ class CurrentCreature: Creature {
     }
 
     override fun GetOlder(deltaAge: Double) {
-        age+=deltaAge
+        age += deltaAge
+    }
+
+    override fun HungerAlert() {
+        hunger_alert++
+        if(hunger_alert>=3){
+            hunger_alert=0
+            Fail()
+        }
+    }
+
+    override fun PoopAlert() {
+        poop_alert++
+        if(poop_alert>=3){
+            poop_alert=0
+            Fail()
+        }
+    }
+
+    override fun SleepAlert() {
+        sleep_alert++
+        if(sleep_alert>=3){
+            sleep_alert=0
+            Fail()
+        }
     }
 
     fun toJSON(): String {
@@ -147,6 +177,9 @@ class CurrentCreature: Creature {
             jsonObject.put("is_poop", has_pooped)
             jsonObject.put("is_sad", is_sad)
             jsonObject.put("is_dead", is_dead)
+            jsonObject.put("hunger_alert", hunger_alert)
+            jsonObject.put("poop_alert", poop_alert)
+            jsonObject.put("sleep_alert", sleep_alert)
             jsonObject.put("care_mistakes", care_mistakes)
             return jsonObject.toString()
         } catch (e: JSONException) {

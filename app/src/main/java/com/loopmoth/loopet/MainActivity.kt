@@ -13,6 +13,7 @@ import android.util.Log
 import kotlinx.android.synthetic.main.activity_main.*
 import android.content.IntentFilter
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import xdroid.toaster.Toaster.toast
 
 class MainActivity : AppCompatActivity() {
     var mServiceIntent: Intent? = null
@@ -37,9 +38,14 @@ class MainActivity : AppCompatActivity() {
 
         receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
-                val s = intent.getStringExtra(GameEngine.COPA_MESSAGE)
-                //toast(s)
-                tvName.text = s
+                val name = intent.getStringExtra(GameEngine.CREATURE_NAME)
+                val is_hungry = intent.getStringExtra(GameEngine.CREATURE_HUNGRY)
+                val is_sleepy = intent.getStringExtra(GameEngine.CREATURE_SLEEPY)
+                val has_pooped = intent.getStringExtra(GameEngine.CREATURE_POOP)
+                tvName.text = name.toString()
+                tvHungry.text = is_hungry
+                tvPoop.text = has_pooped
+                tvSleepy.text = is_sleepy
             }
         }
     }
@@ -69,14 +75,12 @@ class MainActivity : AppCompatActivity() {
                 startActivity(intent)
             }
         }
-
-        val vibratorService = getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
     }
 
     override fun onStart() {
         super.onStart()
         LocalBroadcastManager.getInstance(this).registerReceiver((receiver),
-            IntentFilter(GameEngine.COPA_RESULT)
+            IntentFilter(GameEngine.GAME_RESULT)
         )
     }
 
