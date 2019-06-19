@@ -4,7 +4,7 @@ import com.loopmoth.loopet.enums.Stadium
 import com.loopmoth.loopet.interfaces.Creature
 
 class Dead: Creature {
-    override var name: String = "Dead"
+    override var name: String = "Deadthorus"
     override var stadium: Stadium = Stadium.DEAD
 
     override var max_happiness: Int = 0

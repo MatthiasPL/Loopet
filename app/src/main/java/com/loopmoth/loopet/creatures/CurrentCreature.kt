@@ -51,7 +51,7 @@ class CurrentCreature: Creature {
     var poop_alert: Int = 0
     var sleep_alert: Int = 0
 
-    private var care_mistakes: Int = 0
+    var care_mistakes: Int = 0
 
     override fun ChangeLight() {
         is_dark = !is_dark

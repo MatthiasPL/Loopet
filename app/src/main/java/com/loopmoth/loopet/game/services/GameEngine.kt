@@ -18,16 +18,22 @@ import android.app.PendingIntent
 import android.os.Vibrator
 import androidx.core.app.NotificationCompat
 import com.loopmoth.loopet.R
+import com.loopmoth.loopet.creatures.Adult.Looyang
+import com.loopmoth.loopet.creatures.Adult.Looying
 import com.loopmoth.loopet.creatures.Baby.Loopel
+import com.loopmoth.loopet.creatures.Dead
+import com.loopmoth.loopet.creatures.Old.Loolong
+import com.loopmoth.loopet.creatures.Young.Loochi
+import com.loopmoth.loopet.creatures.Young.Loohan
+import com.loopmoth.loopet.enums.Stadium
 import java.io.*
 
 
 class GameEngine() : Service() {
 
-    //TODO: evolution, death, illnesses, happiness
+    //TODO: OPTIONAL: illnesses, happiness
 
     companion object {
-        var BUS = MutableLiveData<Object>()
         var CREATURE_NAME: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_NAME"
         var CREATURE_HUNGRY: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_HUNGRY"
         val CREATURE_SLEEPY: String = "com.loopmoth.loopet.game.services.GameEngine.CREATURE_SLEEPY"
@@ -38,9 +44,9 @@ class GameEngine() : Service() {
     val GAME_RESULT = "com.loopmoth.loopet.game.services.GameEngine.REQUEST_PROCESSED"
 
     // constant
-    val minutes: Int = 20
-    //val NOTIFY_INTERVAL = (minutes * 60 * 1000).toLong() // 20 minutes interval
-    val NOTIFY_INTERVAL = 1000.toLong() // temporary for testing
+    val minutes: Double = 0.01//20
+    val NOTIFY_INTERVAL = (minutes * 60 * 1000).toLong() // 20 minutes interval
+    //val NOTIFY_INTERVAL = 1000.toLong() // temporary for testing
 
     // run on another Thread to avoid crash
     private val mHandler = Handler()
@@ -56,8 +62,11 @@ class GameEngine() : Service() {
     override fun onCreate() {
         super.onCreate()
 
+        //Sprawdzenie, czy istnieje już instancja potworka w formacie json
         checkIfFileExists(this)
 
+        //timer, który działa w tle i wykonuje się co określony czas
+        //sprawdzamy, czy istnieje
         if (mTimer != null) {
             mTimer!!.cancel()
         } else {
@@ -66,22 +75,24 @@ class GameEngine() : Service() {
         }
         // schedule task
         mTimer!!.scheduleAtFixedRate(GameEngineTimerTask(), 0, NOTIFY_INTERVAL)
+        //tworzymy broadcastera
         broadcaster = LocalBroadcastManager.getInstance(this)
     }
-
 
     //wysyłanie danych do widoku
     fun sendResult() {
         val intent = Intent(GAME_RESULT)
 
-        intent.putExtra(CREATURE_NAME, mCurrentCreature!!.name)
-        intent.putExtra(CREATURE_HUNGRY, mCurrentCreature!!.is_hungry.toString())
-        intent.putExtra(CREATURE_SLEEPY, mCurrentCreature!!.is_sleepy.toString())
-        intent.putExtra(CREATURE_POOP, mCurrentCreature!!.has_pooped.toString())
+        intent.putExtra(CREATURE_NAME, mCurrentCreature!!.name.toString())
+        intent.putExtra(CREATURE_HUNGRY, mCurrentCreature!!.hunger.toString())
+        intent.putExtra(CREATURE_SLEEPY, mCurrentCreature!!.age.toString())
+        intent.putExtra(CREATURE_POOP, mCurrentCreature!!.poop.toString())
 
+        //wysyłamy broadcasta
         broadcaster.sendBroadcast(intent)
     }
 
+    //task silnika gry
     internal inner class GameEngineTimerTask : TimerTask() {
         override fun run() {
             // run on another thread
@@ -93,13 +104,21 @@ class GameEngine() : Service() {
         }
     }
 
+    //funkcja wykonująca określone zadania związane z aktualizowaniem statusu stworka, wysyła też powiadomienia,
+    //gdy są one wymagane
     private fun gameEngineLoop(){
-        checkPrivateNeeds()
-        sendNotificationIfNeeded()
+        if(mCurrentCreature!!.stadium != Stadium.DEAD){
+            checkPrivateNeeds()
+            sendNotificationIfNeeded()
+            checkEvolving()
+        }
     }
 
+    //aktualizowanie głodu, snu i innych potrzeb fizjologicznych
     private fun checkPrivateNeeds(){
-        val deltaAge: Double = (1 / ((60/minutes) * 24)).toDouble()
+
+        //wyliczanie ile dni ma stworek, dodajemy deltę czasu z poniższego wzoru
+        val deltaAge: Double = 100 * (1 / ((60/minutes) * 24)).toDouble()
 
         val rightNow = Calendar.getInstance()
         val currentHourIn24Format = rightNow.get(Calendar.HOUR_OF_DAY)
@@ -133,6 +152,66 @@ class GameEngine() : Service() {
         mCurrentCreature!!.GetOlder(deltaAge)
     }
 
+    //sprawdzenie czy stworek może ewoluować
+    private fun checkEvolving(){
+        //ewolucja Loopel
+        if (mCurrentCreature!!.name == "Loopel"){
+            if (mCurrentCreature!!.age > 0.1 && mCurrentCreature!!.care_mistakes < 1){
+                val tempAge = mCurrentCreature!!.age
+                mCurrentCreature = CurrentCreature(Loochi())
+                mCurrentCreature!!.age = tempAge
+            }
+            else if (mCurrentCreature!!.age > 0.1 && mCurrentCreature!!.care_mistakes >= 1){
+                val tempAge = mCurrentCreature!!.age
+                mCurrentCreature = CurrentCreature(Loohan())
+                mCurrentCreature!!.age = tempAge
+            }
+        }
+
+        //ewolucja Loochi
+        else if (mCurrentCreature!!.name == "Loochi"){
+            if (mCurrentCreature!!.age > 0.2){
+                val tempAge = mCurrentCreature!!.age
+                mCurrentCreature = CurrentCreature(Looying())
+                mCurrentCreature!!.age = tempAge
+            }
+        }
+
+        //ewolucja Loohan
+        else if (mCurrentCreature!!.name == "Loohan"){
+            if (mCurrentCreature!!.age > 0.2){
+                val tempAge = mCurrentCreature!!.age
+                mCurrentCreature = CurrentCreature(Looyang())
+                mCurrentCreature!!.age = tempAge
+            }
+        }
+
+        //ewolucja Looying/Looyang
+        else if (mCurrentCreature!!.name == "Looying" || mCurrentCreature!!.name == "Looyang"){
+            if (mCurrentCreature!!.age > 0.3){
+                val tempAge = mCurrentCreature!!.age
+                mCurrentCreature = CurrentCreature(Loolong())
+                mCurrentCreature!!.age = tempAge
+            }
+        }
+
+        else if(mCurrentCreature!!.age > 5){
+            val tempAge = mCurrentCreature!!.age
+            mCurrentCreature = CurrentCreature(Dead())
+            mCurrentCreature!!.age = tempAge
+        }
+
+        resetStats()
+    }
+
+    private fun resetStats(){
+        mCurrentCreature!!.care_mistakes = 0
+        mCurrentCreature!!.sleep_alert = 0
+        mCurrentCreature!!.poop_alert = 0
+        mCurrentCreature!!.hunger_alert = 0
+    }
+
+    //zmiana flagi potrzeb stworka
     private fun addAlertWhenNeeded(){
         if(!mCurrentCreature!!.is_sleeping){
             if(mCurrentCreature!!.is_hungry){
@@ -147,6 +226,7 @@ class GameEngine() : Service() {
         }
     }
 
+    //wysyłanie powiadomienia, kiedy należy
     private fun sendNotificationIfNeeded(){
         if(mCurrentCreature!!.has_pooped || mCurrentCreature!!.is_hungry || mCurrentCreature!!.is_sleepy ||
             mCurrentCreature!!.is_ill || mCurrentCreature!!.is_dead || mCurrentCreature!!.is_sad){
@@ -154,6 +234,7 @@ class GameEngine() : Service() {
         }
     }
 
+    //sprawdzenie czy plik istnieje
     private fun checkIfFileExists(context: Context){
         val path = context.filesDir
         val file = File(path, fileName)
@@ -170,6 +251,7 @@ class GameEngine() : Service() {
         }
     }
 
+    //funkcja wysyłająca powiadomienia
     private fun sendNotification() {
         val mBuilder = NotificationCompat.Builder(this)
 
@@ -198,7 +280,7 @@ class GameEngine() : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        //wywołanie funkcji
+        //stworzenie usługi w trybie sticky
         return START_STICKY
     }
 
